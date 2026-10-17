@@ -1,0 +1,22 @@
+.SH "ENVIRONMENT VARIABLES"
+.PP
+wlog environment variables
+.RS 4
+@MANPAGE_NAME@ uses wLog as its log facility, you can refer to the corresponding man page (wlog(7)) for more information\&. Arguments passed via the
+\fI/log\-level\fR
+or
+\fI/log\-filters\fR
+have precedence over the environment variables\&.
+.br
+.RE
+.PP
+freerdp environment variables
+.RS 4
+Various configurations of the core library can be configured with environment variables as well. Consult (freerdp(7)) for more information\&.
+.RE
+
+.PP
+FREERDP_ASKPASS
+.RS 4
+Set a program to ask for passwords similar to \fISSH_ASKPASS\fR
+.RE

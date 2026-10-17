@@ -1,0 +1,15 @@
+<%- include('partials/head', { title: t('status_title') }) %>
+<section class="hero hero-tight">
+  <div class="wrap">
+    <h1><span class="grad"><%= t('status_title') %></span></h1>
+    <p><span class="pill"><%= t('status_ok') %></span></p>
+  </div>
+</section>
+<section class="pt-10">
+  <div class="wrap grid grid-3">
+    <div class="card"><p><%= t('status_devices') %></p><div class="kpi"><%= devicesOnline %></div></div>
+    <div class="card"><p><%= t('status_sessions') %></p><div class="kpi"><%= activeSessions %></div></div>
+    <div class="card"><p><%= t('status_version') %></p><div class="kpi"><%= release ? 'v' + release.version : '—' %></div></div>
+  </div>
+</section>
+<%- include('partials/foot') %>

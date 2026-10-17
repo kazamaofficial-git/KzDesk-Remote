@@ -1,0 +1,341 @@
+{
+  "format": "kzdesk.controller-template-bundle",
+  "schema": 1,
+  "templates": [
+    {
+      "format": "kzdesk.controller-template",
+      "schema": 1,
+      "name": "FPS Joystick",
+      "author": "KazamaDev",
+      "description": "Joystick WASD di kiri, joystick kamera di kanan, tembak/bidik, lompat, lari, jongkok.",
+      "keys": [
+        {
+          "id": "fps_move",
+          "kind": "PAD_STICK",
+          "label": "Gerak",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.06,
+          "y": 0.56,
+          "size": 92,
+          "stickMode": "WASD"
+        },
+        {
+          "id": "fps_look",
+          "kind": "PAD_STICK",
+          "label": "Kamera",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.8,
+          "y": 0.56,
+          "size": 92,
+          "stickMode": "POINTER",
+          "stickSens": 1.6
+        },
+        {
+          "id": "fps_sprint",
+          "kind": "KEY",
+          "label": "Lari",
+          "code": 59,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.06,
+          "y": 0.36,
+          "size": 46
+        },
+        {
+          "id": "fps_crouch",
+          "kind": "KEY",
+          "label": "Jongkok",
+          "code": 113,
+          "shift": false,
+          "combo": [],
+          "action": "TOGGLE",
+          "x": 0.17,
+          "y": 0.36,
+          "size": 46
+        },
+        {
+          "id": "fps_fire",
+          "kind": "MOUSE_LEFT",
+          "label": "Tembak",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.66,
+          "y": 0.7,
+          "size": 46
+        },
+        {
+          "id": "fps_aim",
+          "kind": "MOUSE_RIGHT",
+          "label": "Bidik",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.66,
+          "y": 0.5,
+          "size": 46
+        },
+        {
+          "id": "fps_jump",
+          "kind": "KEY",
+          "label": "Lompat",
+          "code": 62,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.9,
+          "y": 0.34,
+          "size": 46
+        },
+        {
+          "id": "fps_reload",
+          "kind": "KEY",
+          "label": "R",
+          "code": 46,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.8,
+          "y": 0.34,
+          "size": 46
+        },
+        {
+          "id": "fps_use",
+          "kind": "KEY",
+          "label": "E",
+          "code": 33,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.7,
+          "y": 0.3,
+          "size": 46
+        },
+        {
+          "id": "fps_menu",
+          "kind": "KEY",
+          "label": "Esc",
+          "code": 111,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.46,
+          "y": 0.06,
+          "size": 46
+        }
+      ]
+    },
+    {
+      "format": "kzdesk.controller-template",
+      "schema": 1,
+      "name": "Racing",
+      "author": "KazamaDev",
+      "description": "Joystick panah untuk setir, pedal gas/rem, rem tangan, nitro.",
+      "keys": [
+        {
+          "id": "race_steer",
+          "kind": "PAD_STICK",
+          "label": "Setir",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.06,
+          "y": 0.58,
+          "size": 92,
+          "stickMode": "ARROWS",
+          "stickDead": 0.2
+        },
+        {
+          "id": "race_gas",
+          "kind": "KEY",
+          "label": "Gas",
+          "code": 51,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.88,
+          "y": 0.66,
+          "size": 64
+        },
+        {
+          "id": "race_brake",
+          "kind": "KEY",
+          "label": "Rem",
+          "code": 47,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.76,
+          "y": 0.72,
+          "size": 64
+        },
+        {
+          "id": "race_hand",
+          "kind": "KEY",
+          "label": "R.Tangan",
+          "code": 62,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.64,
+          "y": 0.74,
+          "size": 46
+        },
+        {
+          "id": "race_nitro",
+          "kind": "KEY",
+          "label": "Nitro",
+          "code": 59,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.88,
+          "y": 0.4,
+          "size": 46
+        },
+        {
+          "id": "race_look",
+          "kind": "KEY",
+          "label": "Lihat",
+          "code": 31,
+          "shift": false,
+          "combo": [],
+          "action": "HOLD",
+          "x": 0.76,
+          "y": 0.4,
+          "size": 46
+        },
+        {
+          "id": "race_reset",
+          "kind": "KEY",
+          "label": "Reset",
+          "code": 46,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.46,
+          "y": 0.06,
+          "size": 46
+        },
+        {
+          "id": "race_pause",
+          "kind": "KEY",
+          "label": "Esc",
+          "code": 111,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.56,
+          "y": 0.06,
+          "size": 46
+        }
+      ]
+    },
+    {
+      "format": "kzdesk.controller-template",
+      "schema": 1,
+      "name": "Presentasi",
+      "author": "KazamaDev",
+      "description": "Slide maju/mundur, mulai (F5), layar hitam, dan joystick sebagai penunjuk kursor.",
+      "keys": [
+        {
+          "id": "pres_next",
+          "kind": "KEY",
+          "label": "Next",
+          "code": 93,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.86,
+          "y": 0.5,
+          "size": 64
+        },
+        {
+          "id": "pres_prev",
+          "kind": "KEY",
+          "label": "Prev",
+          "code": 92,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.74,
+          "y": 0.5,
+          "size": 64
+        },
+        {
+          "id": "pres_start",
+          "kind": "KEY",
+          "label": "F5",
+          "code": 135,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.86,
+          "y": 0.2,
+          "size": 46
+        },
+        {
+          "id": "pres_black",
+          "kind": "KEY",
+          "label": "Hitam",
+          "code": 30,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.74,
+          "y": 0.2,
+          "size": 46
+        },
+        {
+          "id": "pres_end",
+          "kind": "KEY",
+          "label": "Esc",
+          "code": 111,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.62,
+          "y": 0.2,
+          "size": 46
+        },
+        {
+          "id": "pres_pointer",
+          "kind": "PAD_STICK",
+          "label": "Penunjuk",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.06,
+          "y": 0.56,
+          "size": 92,
+          "stickMode": "POINTER",
+          "stickSens": 0.8,
+          "stickDead": 0.1
+        },
+        {
+          "id": "pres_click",
+          "kind": "MOUSE_LEFT",
+          "label": "Klik",
+          "code": 0,
+          "shift": false,
+          "combo": [],
+          "action": "TAP",
+          "x": 0.2,
+          "y": 0.76,
+          "size": 46
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+# =============================================================
+# KzDesk Remote — R8 rules (aktif di build RELEASE)
+# =============================================================
+
+# --- FreeRDP JNI ------------------------------------------------
+# libfreerdp-android.so HANYA menyentuh satu class:
+#  * entry points: Java_com_freerdp_freerdpcore_services_LibFreeRDP_*
+#  * callback native->Java: static methods pada class yang sama
+#    (updateGraphics, OnConnectionSuccess, OnConnectionFailure, ...)
+# Nama class + nama method TIDAK BOLEH diobfuscate.
+-keep class com.freerdp.freerdpcore.services.LibFreeRDP { *; }
+
+# Defensif: kelas mana pun yang punya native method, pertahankan
+# signatures method-nya (agar resolusi JNI tidak pecah).
+-keepclasseswithmembernames class * { native <methods>; }
+
+# Application entry + implementor LibFreeRDP.EventListener
+-keep class com.freerdp.freerdpcore.application.GlobalApp { *; }
+
+# Service yang di-bind sistem (manifest-bound; defensive keep)
+-keep class com.freerdp.freerdpcore.presentation.KeyboardAccessibilityService { *; }
+
+# --- WebRTC JNI -------------------------------------------------
+# WebRTC's native library calls Java methods by name and uses these wrappers
+# for JNI callbacks. Keep the API stable under R8 in release builds.
+-keep class org.webrtc.** { *; }
+
+# --- SQLCipher (native) ----------------------------------------
+# AAR sqlcipher-android seharusnya membawa consumer rules;
+# keep di sini defensif untuk R8 full mode.
+-keep class net.sqlcipher.** { *; }
+
+# --- Catatan ---
+# Kelas lain (SessionActivity, UI, dsb.) dikepalankan R8 secara
+# normal via reachability + referensi manifest. Jika runtime error
+# muncul pasca-release, tambah keep rule spesifik di sini.

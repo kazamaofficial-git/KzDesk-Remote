@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:installLocation="auto">
+
+    <!-- Android 11+ package visibility for launching the user's Spotify app. -->
+    <queries>
+        <package android:name="com.spotify.music" />
+        <!-- Mulai Android 11 kueri paket disaring: tanpa deklarasi intent ini,
+             daftar pemutar yang membuka pustaka (MediaBrowserService) selalu
+             kosong walau aplikasinya terpasang. -->
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+    </queries>
+
+    <!-- Network/permission requirements are declared by the freeRDPCore
+         library manifest (INTERNET, RECORD_AUDIO, CAMERA, ...) and merged
+         into this app automatically. -->
+
+    <!-- Sesi remote adalah pekerjaan yang sedang dilihat user: dijalankan
+         sebagai foreground service supaya Android tidak mematikan proses
+         begitu app dipindah ke latar. Tipe specialUse dipakai karena kasus
+         ini tidak masuk kategori foreground bawaan. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Auto-update: pasang APK rilis yang sudah diverifikasi (PackageInstaller)
+         dan beri tahu saat pembaruan siap. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name="com.kazamatech.kzdesk.KzApp"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:resizeableActivity="true">
+
+        <service
+            android:name="com.kazamatech.kzdesk.KzSessionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="remote desktop session" />
+        </service>
+
+        <!-- Widget layar utama: sambung ke PC favorit dengan satu ketukan -->
+        <receiver
+            android:name="com.kazamatech.kzdesk.widget.KzFavoritesWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kz_favorites_widget_info" />
+        </receiver>
+
+        <!-- Push (FCM) -->
+        <service
+            android:name="com.kazamatech.kzdesk.push.KzMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="kz_announcements" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_launcher_monochrome" />
+
+        <!-- Pengecekan update berkala di latar. -->
+        <service
+            android:name="com.kazamatech.kzdesk.update.UpdateJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Hasil sesi PackageInstaller (dipanggil sistem lewat PendingIntent). -->
+        <receiver
+            android:name="com.kazamatech.kzdesk.update.UpdateInstallReceiver"
+            android:exported="false" />
+
+        <!-- Read only Spotify's active media session after the user explicitly enables access. -->
+        <service
+            android:name="com.kazamatech.kzdesk.ui.SpotifyNotificationListenerService"
+            android:label="@string/spotify_media_listener_label"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Launcher: home Compose (daftar perangkat + koneksi + target Share ke PC) -->
+        <activity
+            android:name="com.kazamatech.kzdesk.ui.KzDeskHomeActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.KzDeskHome"
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|density|screenLayout">
+            <intent-filter android:label="@string/app_name">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter android:label="Kirim ke PC (KzDesk)">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- Layar sesi KzDesk (surface + kontrol Compose). -->
+        <activity
+            android:name="com.kazamatech.kzdesk.ui.KzDeskSessionActivity"
+            android:exported="false"
+            android:label="Sesi RDP"
+            android:supportsPictureInPicture="true"
+            android:theme="@style/Theme.KzDeskHome"
+            android:windowSoftInputMode="adjustNothing"
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|density|screenLayout" />
+
+        <!-- FileProvider buat share screenshot -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

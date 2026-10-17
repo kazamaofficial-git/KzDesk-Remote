@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- M1.2: tema untuk KzDeskHomeActivity (Compose, tanpa ActionBar) -->
+    <style name="Theme.KzDeskHome" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Tanpa kilatan putih: latar jendela = arang, sama seperti tema gelap app -->
+        <item name="android:windowBackground">@color/kz_window_bg</item>
+    </style>
+</resources>

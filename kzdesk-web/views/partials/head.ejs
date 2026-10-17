@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= locals.title ? locals.title + ' · ' : '' %><%= config.appName %></title>
+  <meta name="description" content="<%= t('hero_sub') %>">
+  <meta name="theme-color" content="#07070b">
+  <meta property="og:title" content="<%= config.appName %>">
+  <meta property="og:description" content="<%= t('hero_title') %>">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="<%= config.baseUrl %>/img/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:url" content="<%= config.baseUrl %><%= path %>">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/img/favicon.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="/css/kz.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/img/favicon.png" alt="" width="30" height="30"><span><%= config.appName %></span></a>
+    <nav class="menu" aria-label="Main">
+      <a href="/#features"><%= t('nav_features') %></a>
+      <a href="/#how"><%= t('nav_how') %></a>
+      <a href="/host"<%- page === 'host' ? ' aria-current="page"' : '' %>><%= t('nav_host') %></a>
+      <a href="/download"<%- page === 'download' ? ' aria-current="page"' : '' %>><%= t('nav_download') %></a>
+      <a href="/status"<%- page === 'status' ? ' aria-current="page"' : '' %>>Status</a>
+      <a href="/donate"><%= t('nav_donate') %></a>
+    </nav>
+    <div class="nav-actions">
+      <a class="lang" href="<%= path %>?lang=<%= lang === 'id' ? 'en' : 'id' %>"><%= lang === 'id' ? 'EN' : 'ID' %></a>
+      <a class="btn btn-primary btn-sm" href="/download"><%= t('nav_download') %></a>
+      <button class="burger" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+    </div>
+  </div>
+</header>
+<main id="main">

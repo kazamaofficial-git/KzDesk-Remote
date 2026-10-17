@@ -1,0 +1,96 @@
+{
+  "format": "kzdesk.controller-template",
+  "schema": 1,
+  "name": "Presentasi",
+  "author": "KazamaDev",
+  "description": "Slide maju/mundur, mulai (F5), layar hitam, dan joystick sebagai penunjuk kursor.",
+  "keys": [
+    {
+      "id": "pres_next",
+      "kind": "KEY",
+      "label": "Next",
+      "code": 93,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.86,
+      "y": 0.5,
+      "size": 64
+    },
+    {
+      "id": "pres_prev",
+      "kind": "KEY",
+      "label": "Prev",
+      "code": 92,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.74,
+      "y": 0.5,
+      "size": 64
+    },
+    {
+      "id": "pres_start",
+      "kind": "KEY",
+      "label": "F5",
+      "code": 135,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.86,
+      "y": 0.2,
+      "size": 46
+    },
+    {
+      "id": "pres_black",
+      "kind": "KEY",
+      "label": "Hitam",
+      "code": 30,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.74,
+      "y": 0.2,
+      "size": 46
+    },
+    {
+      "id": "pres_end",
+      "kind": "KEY",
+      "label": "Esc",
+      "code": 111,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.62,
+      "y": 0.2,
+      "size": 46
+    },
+    {
+      "id": "pres_pointer",
+      "kind": "PAD_STICK",
+      "label": "Penunjuk",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.06,
+      "y": 0.56,
+      "size": 92,
+      "stickMode": "POINTER",
+      "stickSens": 0.8,
+      "stickDead": 0.1
+    },
+    {
+      "id": "pres_click",
+      "kind": "MOUSE_LEFT",
+      "label": "Klik",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.2,
+      "y": 0.76,
+      "size": 46
+    }
+  ]
+}

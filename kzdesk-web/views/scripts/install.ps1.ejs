@@ -1,0 +1,43 @@
+#requires -Version 5.1
+<%# Dirender oleh server dari template EJS; `baseUrl` datang dari konfigurasi. %>
+<#
+  KzDesk Host - bootstrap installer
+  Jalankan di PowerShell (Administrator):  irm <%= baseUrl %>/install.ps1 | iex
+  Skrip ini hanya mengunduh installer resmi, memverifikasi SHA-256, lalu menjalankannya.
+#>
+$ErrorActionPreference = 'Stop'
+$Base = '<%= baseUrl %>'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host 'Jalankan PowerShell sebagai Administrator.' -ForegroundColor Yellow
+    return
+}
+
+Write-Host 'KzDesk Host - mengecek rilis terbaru...' -ForegroundColor Magenta
+$info = Invoke-RestMethod -Uri "$Base/api/update/host?version=0.0.0" -UseBasicParsing
+if ($info.status -ne 'ok' -or -not $info.asset) { throw 'Installer host belum tersedia di rilis terbaru.' }
+
+$tmp = Join-Path $env:TEMP $info.asset.file
+Write-Host "Mengunduh $($info.asset.file) v$($info.version)..."
+Invoke-WebRequest -Uri $info.asset.url -OutFile $tmp -UseBasicParsing
+
+$actual = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $info.asset.sha256.ToLowerInvariant()) {
+    Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    throw 'SHA-256 tidak cocok. Instalasi dibatalkan.'
+}
+
+Write-Host 'Menjalankan installer...' -ForegroundColor Magenta
+Start-Process -FilePath $tmp -ArgumentList '/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+
+$cred = Join-Path $env:ProgramData 'KzDesk\device.json'
+if (Test-Path $cred) {
+    $d = Get-Content $cred -Raw | ConvertFrom-Json
+    Write-Host ''
+    Write-Host "  ID Device : $($d.displayId)" -ForegroundColor Green
+    Write-Host "  Password  : $($d.password)" -ForegroundColor Green
+    Write-Host '  (Simpan. Bisa diganti lewat: KzDesk Host > Pengaturan)'
+}

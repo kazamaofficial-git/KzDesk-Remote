@@ -1,0 +1,668 @@
+/**
+ * FreeRDP: A Remote Desktop Protocol Implementation
+ * Android Clipboard Redirection
+ *
+ * Copyright 2013 Felix Long
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <freerdp/config.h>
+
+#include <jni.h>
+
+#include <limits.h>
+#include <winpr/crt.h>
+#include <winpr/stream.h>
+
+#include <freerdp/client/channels.h>
+#include <freerdp/client/cliprdr.h>
+#include <freerdp/log.h>
+#include <winpr/wlog.h>
+
+#include "android_cliprdr.h"
+#include "android_jni_utils.h"
+#include "android_jni_callback.h"
+
+#define TAG CLIENT_TAG("android.cliprdr")
+
+static void android_cliprdr_free_formats(CLIPRDR_FORMAT* formats, UINT32 numFormats)
+{
+	if (!formats)
+		return;
+
+	for (UINT32 index = 0; index < numFormats; index++)
+		free(formats[index].formatName);
+
+	free(formats);
+}
+
+UINT android_cliprdr_send_client_format_list(CliprdrClientContext* cliprdr)
+{
+	UINT rc = ERROR_INTERNAL_ERROR;
+	UINT32 formatId;
+	UINT32 numFormats;
+	UINT32* pFormatIds;
+	const char* formatName;
+	CLIPRDR_FORMAT* formats;
+	CLIPRDR_FORMAT_LIST formatList = WINPR_C_ARRAY_INIT;
+
+	if (!cliprdr)
+		return ERROR_INVALID_PARAMETER;
+
+	androidContext* afc = (androidContext*)cliprdr->custom;
+
+	if (!afc || !afc->cliprdr)
+		return ERROR_INVALID_PARAMETER;
+
+	pFormatIds = nullptr;
+	numFormats = ClipboardGetFormatIds(afc->clipboard, &pFormatIds);
+	formats = (CLIPRDR_FORMAT*)calloc(numFormats, sizeof(CLIPRDR_FORMAT));
+
+	if (!formats)
+		goto fail;
+
+	for (UINT32 index = 0; index < numFormats; index++)
+	{
+		formatId = pFormatIds[index];
+		formatName = ClipboardGetFormatName(afc->clipboard, formatId);
+		formats[index].formatId = formatId;
+		formats[index].formatName = nullptr;
+
+		if ((formatId > CF_MAX) && formatName)
+		{
+			formats[index].formatName = _strdup(formatName);
+
+			if (!formats[index].formatName)
+				goto fail;
+		}
+	}
+
+	formatList.common.msgFlags = 0;
+	formatList.numFormats = numFormats;
+	formatList.formats = formats;
+	formatList.common.msgType = CB_FORMAT_LIST;
+
+	if (!afc->cliprdr->ClientFormatList)
+		goto fail;
+
+	rc = afc->cliprdr->ClientFormatList(afc->cliprdr, &formatList);
+fail:
+	free(pFormatIds);
+	android_cliprdr_free_formats(formats, numFormats);
+	return rc;
+}
+
+static UINT android_cliprdr_send_client_format_data_request(CliprdrClientContext* cliprdr,
+                                                            UINT32 formatId)
+{
+	UINT rc = ERROR_INVALID_PARAMETER;
+	CLIPRDR_FORMAT_DATA_REQUEST formatDataRequest = WINPR_C_ARRAY_INIT;
+	androidContext* afc;
+
+	if (!cliprdr)
+		goto fail;
+
+	afc = (androidContext*)cliprdr->custom;
+
+	if (!afc || !afc->clipboardRequestEvent || !cliprdr->ClientFormatDataRequest)
+		goto fail;
+
+	formatDataRequest.common.msgType = CB_FORMAT_DATA_REQUEST;
+	formatDataRequest.common.msgFlags = 0;
+	formatDataRequest.requestedFormatId = formatId;
+	afc->requestedFormatId = formatId;
+	(void)ResetEvent(afc->clipboardRequestEvent);
+	rc = cliprdr->ClientFormatDataRequest(cliprdr, &formatDataRequest);
+fail:
+	return rc;
+}
+
+static UINT android_cliprdr_send_client_capabilities(CliprdrClientContext* cliprdr)
+{
+	CLIPRDR_CAPABILITIES capabilities;
+	CLIPRDR_GENERAL_CAPABILITY_SET generalCapabilitySet;
+
+	if (!cliprdr || !cliprdr->ClientCapabilities)
+		return ERROR_INVALID_PARAMETER;
+
+	capabilities.cCapabilitiesSets = 1;
+	capabilities.capabilitySets = (CLIPRDR_CAPABILITY_SET*)&(generalCapabilitySet);
+	generalCapabilitySet.capabilitySetType = CB_CAPSTYPE_GENERAL;
+	generalCapabilitySet.capabilitySetLength = 12;
+	generalCapabilitySet.version = CB_CAPS_VERSION_2;
+	generalCapabilitySet.generalFlags = CB_USE_LONG_FORMAT_NAMES;
+	return cliprdr->ClientCapabilities(cliprdr, &capabilities);
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT android_cliprdr_monitor_ready(CliprdrClientContext* cliprdr,
+                                          const CLIPRDR_MONITOR_READY* monitorReady)
+{
+	UINT rc;
+	androidContext* afc;
+
+	if (!cliprdr || !monitorReady)
+		return ERROR_INVALID_PARAMETER;
+
+	afc = (androidContext*)cliprdr->custom;
+
+	if (!afc)
+		return ERROR_INVALID_PARAMETER;
+
+	if ((rc = android_cliprdr_send_client_capabilities(cliprdr)) != CHANNEL_RC_OK)
+		return rc;
+
+	if ((rc = android_cliprdr_send_client_format_list(cliprdr)) != CHANNEL_RC_OK)
+		return rc;
+
+	afc->clipboardSync = TRUE;
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT android_cliprdr_server_capabilities(CliprdrClientContext* cliprdr,
+                                                const CLIPRDR_CAPABILITIES* capabilities)
+{
+	CLIPRDR_CAPABILITY_SET* capabilitySet;
+	androidContext* afc;
+
+	if (!cliprdr || !capabilities)
+		return ERROR_INVALID_PARAMETER;
+
+	afc = (androidContext*)cliprdr->custom;
+
+	if (!afc)
+		return ERROR_INVALID_PARAMETER;
+
+	for (UINT32 index = 0; index < capabilities->cCapabilitiesSets; index++)
+	{
+		capabilitySet = &(capabilities->capabilitySets[index]);
+
+		if ((capabilitySet->capabilitySetType == CB_CAPSTYPE_GENERAL) &&
+		    (capabilitySet->capabilitySetLength >= CB_CAPSTYPE_GENERAL_LEN))
+		{
+			CLIPRDR_GENERAL_CAPABILITY_SET* generalCapabilitySet =
+			    (CLIPRDR_GENERAL_CAPABILITY_SET*)capabilitySet;
+			afc->clipboardCapabilities = generalCapabilitySet->generalFlags;
+			break;
+		}
+	}
+
+	return CHANNEL_RC_OK;
+}
+
+static UINT android_cliprdr_send_client_format_list_response(CliprdrClientContext* cliprdr,
+                                                             BOOL status)
+{
+	CLIPRDR_FORMAT_LIST_RESPONSE formatListResponse = WINPR_C_ARRAY_INIT;
+
+	formatListResponse.common.msgType = CB_FORMAT_LIST_RESPONSE;
+	formatListResponse.common.msgFlags = status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
+	formatListResponse.common.dataLen = 0;
+
+	if (!cliprdr || !cliprdr->ClientFormatListResponse)
+		return ERROR_INVALID_PARAMETER;
+
+	return cliprdr->ClientFormatListResponse(cliprdr, &formatListResponse);
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT android_cliprdr_server_format_list(CliprdrClientContext* cliprdr,
+                                               const CLIPRDR_FORMAT_LIST* formatList)
+{
+	UINT rc;
+	CLIPRDR_FORMAT* format;
+	androidContext* afc;
+
+	if (!cliprdr || !formatList)
+		return ERROR_INVALID_PARAMETER;
+
+	afc = (androidContext*)cliprdr->custom;
+
+	if (!afc)
+		return ERROR_INVALID_PARAMETER;
+
+	android_cliprdr_free_formats(afc->serverFormats, afc->numServerFormats);
+	afc->serverFormats = nullptr;
+	afc->numServerFormats = 0;
+
+	if (formatList->numFormats < 1)
+		return android_cliprdr_send_client_format_list_response(cliprdr, TRUE);
+
+	afc->numServerFormats = formatList->numFormats;
+	afc->serverFormats = (CLIPRDR_FORMAT*)calloc(afc->numServerFormats, sizeof(CLIPRDR_FORMAT));
+
+	if (!afc->serverFormats)
+		return CHANNEL_RC_NO_MEMORY;
+
+	for (UINT32 index = 0; index < afc->numServerFormats; index++)
+	{
+		afc->serverFormats[index].formatId = formatList->formats[index].formatId;
+		afc->serverFormats[index].formatName = nullptr;
+
+		if (formatList->formats[index].formatName)
+		{
+			afc->serverFormats[index].formatName = _strdup(formatList->formats[index].formatName);
+
+			if (!afc->serverFormats[index].formatName)
+				return CHANNEL_RC_NO_MEMORY;
+		}
+	}
+
+	if ((rc = android_cliprdr_send_client_format_list_response(cliprdr, TRUE)) != CHANNEL_RC_OK)
+		return rc;
+
+	/* Text formats take priority over image formats. Request the best available text format
+	 * first; if none is found, fall back to image. */
+	for (UINT32 index = 0; index < afc->numServerFormats; index++)
+	{
+		format = &(afc->serverFormats[index]);
+
+		if (format->formatId == CF_UNICODETEXT)
+		{
+			if ((rc = android_cliprdr_send_client_format_data_request(cliprdr, CF_UNICODETEXT)) !=
+			    CHANNEL_RC_OK)
+				return rc;
+
+			return CHANNEL_RC_OK;
+		}
+		else if (format->formatId == CF_TEXT)
+		{
+			if ((rc = android_cliprdr_send_client_format_data_request(cliprdr, CF_TEXT)) !=
+			    CHANNEL_RC_OK)
+				return rc;
+
+			return CHANNEL_RC_OK;
+		}
+	}
+
+	/* No text format found — prefer CF_DIB (supported by WinPR BMP/PNG synthesizer)
+	 * before falling back to CF_DIBV5. */
+	BOOL requestedImage = FALSE;
+	for (UINT32 index = 0; index < afc->numServerFormats; index++)
+	{
+		format = &(afc->serverFormats[index]);
+
+		if (format->formatId == CF_DIB)
+		{
+			if ((rc = android_cliprdr_send_client_format_data_request(cliprdr, CF_DIB)) !=
+			    CHANNEL_RC_OK)
+				return rc;
+
+			requestedImage = TRUE;
+			break;
+		}
+	}
+	if (!requestedImage)
+	{
+		for (UINT32 index = 0; index < afc->numServerFormats; index++)
+		{
+			format = &(afc->serverFormats[index]);
+
+			if (format->formatId == CF_DIBV5)
+			{
+				if ((rc = android_cliprdr_send_client_format_data_request(cliprdr, CF_DIBV5)) !=
+				    CHANNEL_RC_OK)
+					return rc;
+
+				break;
+			}
+		}
+	}
+
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT
+android_cliprdr_server_format_list_response(CliprdrClientContext* cliprdr,
+                                            const CLIPRDR_FORMAT_LIST_RESPONSE* formatListResponse)
+{
+	if (!cliprdr || !formatListResponse)
+		return ERROR_INVALID_PARAMETER;
+
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT
+android_cliprdr_server_lock_clipboard_data(CliprdrClientContext* cliprdr,
+                                           const CLIPRDR_LOCK_CLIPBOARD_DATA* lockClipboardData)
+{
+	if (!cliprdr || !lockClipboardData)
+		return ERROR_INVALID_PARAMETER;
+
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT android_cliprdr_server_unlock_clipboard_data(
+    CliprdrClientContext* cliprdr, const CLIPRDR_UNLOCK_CLIPBOARD_DATA* unlockClipboardData)
+{
+	if (!cliprdr || !unlockClipboardData)
+		return ERROR_INVALID_PARAMETER;
+
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT
+android_cliprdr_server_format_data_request(CliprdrClientContext* cliprdr,
+                                           const CLIPRDR_FORMAT_DATA_REQUEST* formatDataRequest)
+{
+	UINT rc;
+	BYTE* data;
+	UINT32 size;
+	UINT32 formatId;
+	CLIPRDR_FORMAT_DATA_RESPONSE response = WINPR_C_ARRAY_INIT;
+	androidContext* afc;
+
+	if (!cliprdr || !formatDataRequest || !cliprdr->ClientFormatDataResponse)
+		return ERROR_INVALID_PARAMETER;
+
+	afc = (androidContext*)cliprdr->custom;
+
+	if (!afc)
+		return ERROR_INVALID_PARAMETER;
+
+	formatId = formatDataRequest->requestedFormatId;
+	data = (BYTE*)ClipboardGetData(afc->clipboard, formatId, &size);
+	/* Guard CLIPRDR single-PDU response size so huge .txt or screenshot DIB buffers cannot
+	 * overflow the Windows rdpclip/termsrv virtual channel buffer and drop
+	 * the session. */
+	if (data && (formatId == CF_UNICODETEXT || formatId == CF_TEXT || formatId == CF_OEMTEXT))
+	{
+		const UINT32 maxSafeBytes = 256U * 1024U;
+		if (size > maxSafeBytes)
+		{
+			size = maxSafeBytes & ~1U;
+			if (size >= 2)
+			{
+				data[size - 2] = 0;
+				data[size - 1] = 0;
+			}
+		}
+	}
+	else if (data && size > (2U * 1024U * 1024U))
+	{
+		/* Reject oversized uncompressed DIB/binary clipboard uploads (> 2 MB) cleanly
+		 * with CB_RESPONSE_FAIL instead of stalling or dropping the RDP channel. */
+		free(data);
+		data = nullptr;
+		size = 0;
+	}
+	response.common.msgFlags = CB_RESPONSE_OK;
+	response.common.dataLen = size;
+	response.requestedFormatData = data;
+
+	if (!data)
+	{
+		response.common.msgFlags = CB_RESPONSE_FAIL;
+		response.common.dataLen = 0;
+		response.requestedFormatData = nullptr;
+	}
+
+	rc = cliprdr->ClientFormatDataResponse(cliprdr, &response);
+	free(data);
+	if (rc != CHANNEL_RC_OK)
+	{
+		WLog_WARN(TAG, "ClientFormatDataResponse returned %u; keeping session alive", rc);
+	}
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT
+android_cliprdr_server_format_data_response(CliprdrClientContext* cliprdr,
+                                            const CLIPRDR_FORMAT_DATA_RESPONSE* formatDataResponse)
+{
+	CLIPRDR_FORMAT* format = nullptr;
+
+	if (!cliprdr || !formatDataResponse)
+		return ERROR_INVALID_PARAMETER;
+
+	androidContext* afc = (androidContext*)cliprdr->custom;
+
+	if (!afc)
+		return ERROR_INVALID_PARAMETER;
+
+	freerdp* instance = ((rdpContext*)afc)->instance;
+
+	if (!instance)
+		return ERROR_INVALID_PARAMETER;
+
+	if ((formatDataResponse->common.msgFlags & CB_RESPONSE_FAIL) != 0 ||
+	    !formatDataResponse->requestedFormatData || formatDataResponse->common.dataLen == 0)
+	{
+		WLog_WARN(TAG, "Remote clipboard FormatDataResponse failed or empty; ignoring");
+		(void)SetEvent(afc->clipboardRequestEvent);
+		return CHANNEL_RC_OK;
+	}
+
+	for (UINT32 index = 0; index < afc->numServerFormats; index++)
+	{
+		if (afc->requestedFormatId == afc->serverFormats[index].formatId)
+			format = &(afc->serverFormats[index]);
+	}
+
+	if (!format)
+	{
+		/* A clipboard list can change while a large format response is in flight.
+		 * Treat an unmatchable response as a clipboard miss, not a session error. */
+		WLog_WARN(TAG, "Ignoring clipboard response for an outdated or unknown format id");
+		(void)SetEvent(afc->clipboardRequestEvent);
+		return CHANNEL_RC_OK;
+	}
+
+	UINT32 formatId = format->formatId;
+	if (format->formatName)
+		formatId = ClipboardRegisterFormat(afc->clipboard, format->formatName);
+
+	uint32_t size = formatDataResponse->common.dataLen;
+
+	if (!ClipboardSetData(afc->clipboard, formatId, formatDataResponse->requestedFormatData, size))
+	{
+		/* A large remote clip can exhaust clipboard allocation. It is a failed
+		 * clipboard update, not a reason to tear down the RDP session. */
+		WLog_WARN(TAG, "Ignoring remote clipboard data that could not be stored (%u bytes)", size);
+		(void)SetEvent(afc->clipboardRequestEvent);
+		return CHANNEL_RC_OK;
+	}
+
+	(void)SetEvent(afc->clipboardRequestEvent);
+
+	switch (formatId)
+	{
+		case CF_TEXT:
+		case CF_UNICODETEXT:
+		{
+			JNIEnv* env = nullptr;
+			UINT32 plainFormatId = ClipboardRegisterFormat(afc->clipboard, "text/plain");
+			char* data = (char*)ClipboardGetData(afc->clipboard, plainFormatId, &size);
+			if (!data)
+				break;
+			size = strnlen(data, size);
+			if (size > INT_MAX)
+			{
+				/* Java strings and JNI lengths are signed 32-bit values. Reject only
+				 * values the Android runtime cannot represent; do not impose an
+				 * arbitrary app-level clipboard length cap. */
+				WLog_WARN(TAG, "Remote clipboard text exceeds Java string limit (%u bytes)", size);
+				free(data);
+				break;
+			}
+
+			jboolean attached = jni_attach_thread(&env);
+			jstring jdata = jniNewStringUTF(env, data, (int)size);
+			if (jdata)
+			{
+				freerdp_callback("OnRemoteClipboardChanged", "(JLjava/lang/String;)V", (jlong)instance,
+				                 jdata);
+				(*env)->DeleteLocalRef(env, jdata);
+			}
+			else
+			{
+				/* Never pass a null Java String into the non-null Kotlin listener. */
+				if ((*env)->ExceptionCheck(env))
+					(*env)->ExceptionClear(env);
+				WLog_WARN(TAG, "Could not create Java string for remote clipboard (%u bytes)", size);
+			}
+			free(data);
+
+			if (attached == JNI_TRUE)
+				jni_detach_thread();
+		}
+		break;
+		case CF_DIB:
+		case CF_DIBV5:
+		{
+			UINT32 pngFormatId = ClipboardRegisterFormat(afc->clipboard, "image/png");
+			BYTE* pngData = (BYTE*)ClipboardGetData(afc->clipboard, pngFormatId, &size);
+
+			if (pngData)
+			{
+				JNIEnv* env = nullptr;
+				jboolean attached = jni_attach_thread(&env);
+				jbyteArray jpngData = (*env)->NewByteArray(env, (jsize)size);
+
+				if (jpngData)
+				{
+					(*env)->SetByteArrayRegion(env, jpngData, 0, (jsize)size,
+					                           (const jbyte*)pngData);
+					freerdp_callback("OnRemoteClipboardImageChanged", "(J[B)V", (jlong)instance,
+					                 jpngData);
+					(*env)->DeleteLocalRef(env, jpngData);
+				}
+
+				free(pngData);
+
+				if (attached == JNI_TRUE)
+					jni_detach_thread();
+			}
+		}
+		break;
+		default:
+			break;
+	}
+
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT android_cliprdr_server_file_contents_request(
+    CliprdrClientContext* cliprdr, const CLIPRDR_FILE_CONTENTS_REQUEST* fileContentsRequest)
+{
+	if (!cliprdr || !fileContentsRequest)
+		return ERROR_INVALID_PARAMETER;
+
+	return CHANNEL_RC_OK;
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT android_cliprdr_server_file_contents_response(
+    CliprdrClientContext* cliprdr, const CLIPRDR_FILE_CONTENTS_RESPONSE* fileContentsResponse)
+{
+	if (!cliprdr || !fileContentsResponse)
+		return ERROR_INVALID_PARAMETER;
+
+	return CHANNEL_RC_OK;
+}
+
+BOOL android_cliprdr_init(androidContext* afc, CliprdrClientContext* cliprdr)
+{
+	wClipboard* clipboard;
+	HANDLE hevent;
+
+	if (!afc || !cliprdr)
+		return FALSE;
+
+	if (!(hevent = CreateEvent(nullptr, TRUE, FALSE, nullptr)))
+		return FALSE;
+
+	if (!(clipboard = ClipboardCreate()))
+	{
+		(void)CloseHandle(hevent);
+		return FALSE;
+	}
+
+	afc->cliprdr = cliprdr;
+	afc->clipboard = clipboard;
+	afc->clipboardRequestEvent = hevent;
+	cliprdr->custom = (void*)afc;
+	cliprdr->MonitorReady = android_cliprdr_monitor_ready;
+	cliprdr->ServerCapabilities = android_cliprdr_server_capabilities;
+	cliprdr->ServerFormatList = android_cliprdr_server_format_list;
+	cliprdr->ServerFormatListResponse = android_cliprdr_server_format_list_response;
+	cliprdr->ServerLockClipboardData = android_cliprdr_server_lock_clipboard_data;
+	cliprdr->ServerUnlockClipboardData = android_cliprdr_server_unlock_clipboard_data;
+	cliprdr->ServerFormatDataRequest = android_cliprdr_server_format_data_request;
+	cliprdr->ServerFormatDataResponse = android_cliprdr_server_format_data_response;
+	cliprdr->ServerFileContentsRequest = android_cliprdr_server_file_contents_request;
+	cliprdr->ServerFileContentsResponse = android_cliprdr_server_file_contents_response;
+	return TRUE;
+}
+
+BOOL android_cliprdr_uninit(androidContext* afc, CliprdrClientContext* cliprdr)
+{
+	if (!afc || !cliprdr)
+		return FALSE;
+
+	cliprdr->custom = nullptr;
+	afc->cliprdr = nullptr;
+	ClipboardDestroy(afc->clipboard);
+	(void)CloseHandle(afc->clipboardRequestEvent);
+	return TRUE;
+}

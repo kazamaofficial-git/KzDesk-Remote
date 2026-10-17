@@ -1,0 +1,38 @@
+// =============================================================
+// :features-sessions — M1: favorites (Room) + data layer sesi
+// Menggabungkan metadata (Room) + password (CredentialVault)
+// jadi ConnectionProfile siap-connect.
+// =============================================================
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'com.google.devtools.ksp'
+
+android {
+    namespace 'com.kazamatech.kzdesk.sessions'
+    compileSdkVersion rootProject.ext.compileApi
+    buildToolsVersion rootProject.ext.toolsVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minApi
+        targetSdkVersion rootProject.ext.targetApi
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+}
+
+dependencies {
+    api project(':core-rdp')
+    implementation project(':features-security')
+
+    implementation 'androidx.room:room-runtime:2.8.5'
+    implementation 'androidx.room:room-ktx:2.8.5'
+    ksp 'androidx.room:room-compiler:2.8.5'
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+}

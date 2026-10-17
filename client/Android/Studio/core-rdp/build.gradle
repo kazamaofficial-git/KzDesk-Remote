@@ -1,0 +1,37 @@
+// =============================================================
+// :core-rdp — M1: lapis Kotlin di atas :freeRDPCore
+// SessionManager (state machine) + ConnectionProfile + RdpUri.
+// Tidak menyentuh UI — hanya orkestrasi sesi + event.
+// =============================================================
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.kazamatech.kzdesk.core'
+    compileSdkVersion rootProject.ext.compileApi
+    buildToolsVersion rootProject.ext.toolsVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minApi
+        targetSdkVersion rootProject.ext.targetApi
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+}
+
+dependencies {
+    // 'api': consumer (app, features-*) boleh refer LibFreeRDP/GlobalApp
+    api project(':freeRDPCore')
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+
+    // Unit test JVM (tanpa emulator) untuk bagian murni: RdpUri, validasi
+    // profil, flag sertifikat. Jalan di CI lewat `./gradlew testDebugUnitTest`.
+    testImplementation 'junit:junit:4.13.2'
+}

@@ -1,0 +1,132 @@
+{
+  "format": "kzdesk.controller-template",
+  "schema": 1,
+  "name": "FPS Joystick",
+  "author": "KazamaDev",
+  "description": "Joystick WASD di kiri, joystick kamera di kanan, tembak/bidik, lompat, lari, jongkok.",
+  "keys": [
+    {
+      "id": "fps_move",
+      "kind": "PAD_STICK",
+      "label": "Gerak",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.06,
+      "y": 0.56,
+      "size": 92,
+      "stickMode": "WASD"
+    },
+    {
+      "id": "fps_look",
+      "kind": "PAD_STICK",
+      "label": "Kamera",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.8,
+      "y": 0.56,
+      "size": 92,
+      "stickMode": "POINTER",
+      "stickSens": 1.6
+    },
+    {
+      "id": "fps_sprint",
+      "kind": "KEY",
+      "label": "Lari",
+      "code": 59,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.06,
+      "y": 0.36,
+      "size": 46
+    },
+    {
+      "id": "fps_crouch",
+      "kind": "KEY",
+      "label": "Jongkok",
+      "code": 113,
+      "shift": false,
+      "combo": [],
+      "action": "TOGGLE",
+      "x": 0.17,
+      "y": 0.36,
+      "size": 46
+    },
+    {
+      "id": "fps_fire",
+      "kind": "MOUSE_LEFT",
+      "label": "Tembak",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.66,
+      "y": 0.7,
+      "size": 46
+    },
+    {
+      "id": "fps_aim",
+      "kind": "MOUSE_RIGHT",
+      "label": "Bidik",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.66,
+      "y": 0.5,
+      "size": 46
+    },
+    {
+      "id": "fps_jump",
+      "kind": "KEY",
+      "label": "Lompat",
+      "code": 62,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.9,
+      "y": 0.34,
+      "size": 46
+    },
+    {
+      "id": "fps_reload",
+      "kind": "KEY",
+      "label": "R",
+      "code": 46,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.8,
+      "y": 0.34,
+      "size": 46
+    },
+    {
+      "id": "fps_use",
+      "kind": "KEY",
+      "label": "E",
+      "code": 33,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.7,
+      "y": 0.3,
+      "size": 46
+    },
+    {
+      "id": "fps_menu",
+      "kind": "KEY",
+      "label": "Esc",
+      "code": 111,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.46,
+      "y": 0.06,
+      "size": 46
+    }
+  ]
+}

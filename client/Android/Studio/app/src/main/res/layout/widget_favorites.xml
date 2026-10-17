@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/kz_widget_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/kz_w_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="KzDesk Remote"
+        android:textColor="#FFFFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/kz_w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Belum ada perangkat. Buka app untuk menambah."
+        android:textColor="#FFB4B4CC"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/kz_w_1"
+        style="@style/KzWidgetButton" />
+
+    <TextView
+        android:id="@+id/kz_w_2"
+        style="@style/KzWidgetButton" />
+
+    <TextView
+        android:id="@+id/kz_w_3"
+        style="@style/KzWidgetButton" />
+
+    <TextView
+        android:id="@+id/kz_w_4"
+        style="@style/KzWidgetButton" />
+</LinearLayout>

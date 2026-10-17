@@ -1,0 +1,28 @@
+<%- include('partials/head', { title: t('host_title') }) %>
+<section class="hero hero-tight">
+  <div class="wrap">
+    <span class="badge">Windows 10 / 11 · Server 2016+</span>
+    <h1><span class="grad"><%= t('host_title') %></span></h1>
+    <p class="lead"><%= t('host_sub') %></p>
+    <div class="cta"><a class="btn btn-primary" href="/dl/host"><%= t('host_install') %></a></div>
+  </div>
+</section>
+<section class="pt-20">
+  <div class="wrap grid grid-2">
+    <div class="panel glow">
+      <h3><%= t('host_ps') %></h3>
+      <div class="code"><span id="ps-text">irm <%= config.baseUrl %>/install.ps1 | iex</span><button class="btn btn-ghost btn-sm copy" type="button" data-copy="ps-text">Copy</button></div>
+      <p class="muted fine mt-14">SHA-256 diverifikasi sebelum installer dijalankan.</p>
+    </div>
+    <div class="panel">
+      <h3><%= t('host_includes') %></h3>
+      <ul class="list">
+        <li><%= t('host_i1') %></li>
+        <li><%= t('host_i2') %></li>
+        <li><%= t('host_i3') %></li>
+        <li><%= t('host_i4') %></li>
+      </ul>
+    </div>
+  </div>
+</section>
+<%- include('partials/foot') %>

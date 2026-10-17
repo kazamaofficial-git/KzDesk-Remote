@@ -1,0 +1,7 @@
+include ':freeRDPCore'
+include ':app'
+// M1 — modul Kotlin KzDesk
+include ':core-rdp'
+include ':core-pc-stream'
+include ':features-security'
+include ':features-sessions'

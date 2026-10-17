@@ -1,0 +1,57 @@
+<%- include('partials/head') %>
+<section class="hero">
+  <div class="wrap">
+    <span class="badge"><%= t('badge') %></span>
+    <h1><span class="grad"><%= t('hero_title') %></span></h1>
+    <p class="lead"><%= t('hero_sub') %></p>
+    <div class="cta">
+      <a class="btn btn-primary" href="/download"><%= t('cta_download') %></a>
+      <a class="btn btn-ghost" href="/host"><%= t('cta_host') %></a>
+    </div>
+    <div class="stats">
+      <div><%= t('stat_modes') %></div>
+      <div><%= t('stat_update') %></div>
+      <div><%= t('stat_input') %></div>
+      <div><%= t('stat_tpl') %></div>
+    </div>
+    <% if (release) { %><p class="muted fine mt-22">v<%= release.version %></p><% } %>
+    <figure class="hero-art"><img src="/img/kzdesk-logo.png" alt="KzDesk Remote — Android, iOS, Windows, macOS, Linux" width="520" height="520"></figure>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">KzDesk Remote</span><h2><%= t('f_title') %></h2></div>
+    <div class="grid grid-3">
+      <% [['⇄','f1'],['⌨','f2'],['{ }','f3'],['◉','f4'],['↻','f5'],['⚡','f6']].forEach(function (f) { %>
+      <article class="card">
+        <div class="icon" aria-hidden="true"><%= f[0] %></div>
+        <h3><%= t(f[1] + '_t') %></h3>
+        <p><%= t(f[1] + '_d') %></p>
+      </article>
+      <% }); %>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">3 steps</span><h2><%= t('how_title') %></h2></div>
+    <div class="grid grid-3 steps">
+      <% ['s1','s2','s3'].forEach(function (s) { %>
+      <div class="step"><h3><%= t(s + '_t') %></h3><p class="muted m0"><%= t(s + '_d') %></p></div>
+      <% }); %>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="band">
+      <h2><%= t('donate_title') %></h2>
+      <p class="lead"><%= t('donate_sub') %></p>
+      <a class="btn btn-primary" href="/donate" rel="noopener"><%= t('donate_btn') %></a>
+    </div>
+  </div>
+</section>
+<%- include('partials/foot') %>

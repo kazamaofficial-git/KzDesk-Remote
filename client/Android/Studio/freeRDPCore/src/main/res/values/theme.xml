@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+
+    <style name="Theme.Main" parent="@style/Theme.AppCompat.DayNight.DarkActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FFFFFF</item> <!--Temporary workaround for status bar color in light mode-->
+    </style>
+
+    <style name="Theme.Main.Session" parent="@style/Theme.Main">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+</resources>

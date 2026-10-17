@@ -1,0 +1,37 @@
+<%- include('partials/head', { title: docKey === 'privacy' ? t('privacy_title') : docKey === 'terms' ? t('terms_title') : t('licenses_title') }) %>
+<section>
+  <div class="wrap prose">
+  <% if (docKey === 'privacy') { %>
+    <h1 class="doc-title"><%= t('privacy_title') %></h1>
+    <p>Terakhir diperbarui: <%= year %>. Layanan ini dijalankan oleh <%= config.developer %>.</p>
+    <h2>Data yang diproses</h2>
+    <ul>
+      <li><strong>Direktori Device ID</strong> (hanya bila kamu memakai mode ID Device): ID perangkat, nama host, alamat IP LAN/VPN yang dilaporkan host, IP publik yang terlihat server, port, versi host, dan waktu terakhir aktif. Password <em>tidak</em> disimpan; yang disimpan hanya verifier PBKDF2 (salt + hash).</li>
+      <li><strong>Sesi aktif anonim</strong>: ID sesi acak di-hash SHA-256 dan dibuang otomatis dalam 90 detik tanpa heartbeat. Dapat dimatikan di aplikasi.</li>
+      <li><strong>Komunitas</strong>: teks yang kamu kirim, nama tampilan opsional, dan hash dari ID klien acak (bukan identitas asli).</li>
+      <li><strong>Update</strong>: permintaan cek versi membawa versi aplikasi dan arsitektur CPU; tidak ada data pribadi.</li>
+    </ul>
+    <h2>Yang tidak kami lakukan</h2>
+    <p>Kami tidak menyimpan password RDP/Windows, tidak merekam layar, dan tidak menjual data. Koneksi RDP berjalan langsung antara aplikasi dan PC-mu.</p>
+    <h2>Penghapusan</h2>
+    <p>Hapus perangkat dari direktori dengan menghapus/menghapus-instal KzDesk Host (host akan melakukan unregister). Data yang tidak aktif 30 hari dihapus otomatis.</p>
+  <% } else if (docKey === 'terms') { %>
+    <h1 class="doc-title"><%= t('terms_title') %></h1>
+    <p>Dengan memakai KzDesk Remote kamu setuju untuk hanya mengakses komputer yang kamu miliki atau yang kamu punya izin tertulis untuk mengaksesnya.</p>
+    <h2>Tanpa jaminan</h2>
+    <p>Perangkat lunak disediakan “apa adanya”, tanpa jaminan apa pun. Kamu bertanggung jawab atas keamanan password, pembaruan Windows, dan konfigurasi firewall/jaringanmu.</p>
+    <h2>Penyalahgunaan</h2>
+    <p>Akses tanpa izin, pemindaian massal, atau upaya menebak password pada layanan direktori dapat menyebabkan pemblokiran.</p>
+  <% } else { %>
+    <h1 class="doc-title"><%= t('licenses_title') %></h1>
+    <p>KzDesk Remote memakai komponen pihak ketiga berikut:</p>
+    <ul>
+      <li><strong>FreeRDP</strong> — Apache License 2.0. Hak cipta © para kontributor FreeRDP. Teks lengkap ada di berkas <code>LICENSE</code> pada repositori.</li>
+      <li><strong>Inter</strong> (font) — SIL Open Font License 1.1.</li>
+      <li><strong>Space Grotesk</strong> (font) — SIL Open Font License 1.1.</li>
+      <li><strong>Express</strong> (MIT) dan <strong>EJS</strong> (Apache-2.0) untuk situs ini.</li>
+    </ul>
+  <% } %>
+  </div>
+</section>
+<%- include('partials/foot') %>

@@ -1,0 +1,46 @@
+<%- include('partials/head', { title: t('dl_title') }) %>
+<section class="hero hero-tight">
+  <div class="wrap">
+    <h1><span class="grad"><%= t('dl_title') %></span></h1>
+    <% if (release) { %>
+      <p class="lead"><%= t('dl_latest') %>: <strong class="white">v<%= release.version %></strong><% if (release.published_at) { %> · <%= String(release.published_at).slice(0, 10) %><% } %></p>
+    <% } else { %>
+      <p class="lead"><%= t('dl_unavail') %></p>
+    <% } %>
+  </div>
+</section>
+<section class="pt-10">
+  <div class="wrap">
+    <% if (release) { %>
+    <p class="muted"><%= t('dl_abi') %></p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>ABI</th><th>File</th><th>SHA-256</th><th></th></tr></thead>
+        <tbody>
+        <% abis.forEach(function (abi) { var a = release.app && release.app.abis && release.app.abis[abi]; if (!a) return; %>
+          <tr>
+            <td><strong><%= abi %></strong></td>
+            <td><%= a.file %><br><span class="muted fine"><%= a.size ? (a.size / 1048576).toFixed(1) + ' MB' : '' %></span></td>
+            <td class="hash"><%= a.sha256 || '—' %></td>
+            <td><a class="btn btn-primary btn-sm" href="/dl/app/<%= abi %>">APK</a></td>
+          </tr>
+        <% }); %>
+        <% if (release.host) { %>
+          <tr>
+            <td><strong>Windows</strong></td>
+            <td><%= release.host.file %></td>
+            <td class="hash"><%= release.host.sha256 || '—' %></td>
+            <td><a class="btn btn-ghost btn-sm" href="/dl/host">EXE</a></td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-16"><a href="/SHA256SUMS.txt"><%= t('dl_sums') %></a> · <a href="<%= release.release_url %>" rel="noopener">GitHub Release</a></p>
+    <% if (release.notes) { %>
+      <div class="panel mt-22"><pre class="notes"><%= release.notes %></pre></div>
+    <% } %>
+    <% } %>
+  </div>
+</section>
+<%- include('partials/foot') %>

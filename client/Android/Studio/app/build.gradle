@@ -1,0 +1,110 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+// Push (FCM) butuh proyek Firebase milikmu: taruh google-services.json di folder app/.
+// Tanpa berkas itu aplikasi tetap dibangun; hanya push yang tidak tersedia.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+android {
+    namespace 'com.kazamatech.kzdesk'
+    compileSdkVersion rootProject.ext.compileApi
+    buildToolsVersion rootProject.ext.toolsVersion
+
+    defaultConfig {
+        applicationId "com.kazamatech.kzdesk"
+        minSdkVersion rootProject.ext.minApi
+        targetSdkVersion rootProject.ext.targetApi
+        versionName rootProject.ext.versionName
+        versionCode rootProject.ext.versionCode
+
+        println 'VERSION_NAME:        ' + versionName
+        println 'VERSION_CODE:        ' + versionCode
+    }
+
+    splits {
+        abi {
+            enable rootProject.ext.splitEnabled
+            reset()
+            include rootProject.ext.splitArchs
+            universalApk rootProject.ext.universal
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(RELEASE_STORE_FILE)
+            storePassword RELEASE_STORE_PASSWORD
+            keyAlias RELEASE_KEY_ALIAS
+            keyPassword RELEASE_KEY_PASSWORD
+            storeType "jks"
+            // Emit both the legacy JAR signature (V1) and whole-APK signature (V2).
+            // MT Manager and other verifiers can then validate the same release APKs
+            // that Android 7+ installs; CI checks both schemes for every ABI.
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
+    buildTypes {
+        release {
+            // R8 aktif (minifyEnabled) + keep rules di proguard-rules.txt.
+            // Rollback cepat: set MINIFY_ENABLED=false di release.properties.
+            minifyEnabled rootProject.ext.minifyEnabled
+            shrinkResources false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.txt'
+        }
+        debug {
+            jniDebuggable true
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+    buildFeatures {
+        compose true
+    }
+}
+
+dependencies {
+    implementation project(':freeRDPCore')
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
+    // Scan QR pairing dari KzDesk Host (kamera diminta oleh library saat dipakai).
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    // freeRDPCore memakai 'implementation' (tidak transitif) — app module
+    // butuh appcompat sendiri untuk AppCompatActivity (versi sama dengan core)
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.core:core:1.19.0'
+    // MediaControllerCompat: satu-satunya jalan ke acak & mode ulang.
+    // MediaController framework menyembunyikan getShuffleMode/getRepeatMode
+    // dan setShuffleMode/setRepeatMode (@hide), jadi tanpa library ini dua
+    // kontrol itu tidak bisa dikirim ke pemutar mana pun.
+    implementation 'androidx.media:media:1.7.0'
+
+    // M1 — modul Kotlin (core sesi, vault, favorites)
+    implementation project(':core-rdp')
+    implementation project(':core-pc-stream')
+    implementation project(':features-security')
+    implementation project(':features-sessions')
+
+    // M1.2 — Jetpack Compose (Material 3)
+    implementation platform('androidx.compose:compose-bom:2026.05.01')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.material:material-icons-core'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    implementation 'androidx.activity:activity-compose:1.13.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    // org.json dipakai parser SoundCloud; Android menyediakannya saat runtime,
+    // unit test JVM membutuhkannya eksplisit.
+    testImplementation 'org.json:json:20240303'
+}

@@ -1,0 +1,107 @@
+{
+  "format": "kzdesk.controller-template",
+  "schema": 1,
+  "name": "Racing",
+  "author": "KazamaDev",
+  "description": "Joystick panah untuk setir, pedal gas/rem, rem tangan, nitro.",
+  "keys": [
+    {
+      "id": "race_steer",
+      "kind": "PAD_STICK",
+      "label": "Setir",
+      "code": 0,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.06,
+      "y": 0.58,
+      "size": 92,
+      "stickMode": "ARROWS",
+      "stickDead": 0.2
+    },
+    {
+      "id": "race_gas",
+      "kind": "KEY",
+      "label": "Gas",
+      "code": 51,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.88,
+      "y": 0.66,
+      "size": 64
+    },
+    {
+      "id": "race_brake",
+      "kind": "KEY",
+      "label": "Rem",
+      "code": 47,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.76,
+      "y": 0.72,
+      "size": 64
+    },
+    {
+      "id": "race_hand",
+      "kind": "KEY",
+      "label": "R.Tangan",
+      "code": 62,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.64,
+      "y": 0.74,
+      "size": 46
+    },
+    {
+      "id": "race_nitro",
+      "kind": "KEY",
+      "label": "Nitro",
+      "code": 59,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.88,
+      "y": 0.4,
+      "size": 46
+    },
+    {
+      "id": "race_look",
+      "kind": "KEY",
+      "label": "Lihat",
+      "code": 31,
+      "shift": false,
+      "combo": [],
+      "action": "HOLD",
+      "x": 0.76,
+      "y": 0.4,
+      "size": 46
+    },
+    {
+      "id": "race_reset",
+      "kind": "KEY",
+      "label": "Reset",
+      "code": 46,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.46,
+      "y": 0.06,
+      "size": 46
+    },
+    {
+      "id": "race_pause",
+      "kind": "KEY",
+      "label": "Esc",
+      "code": 111,
+      "shift": false,
+      "combo": [],
+      "action": "TAP",
+      "x": 0.56,
+      "y": 0.06,
+      "size": 46
+    }
+  ]
+}

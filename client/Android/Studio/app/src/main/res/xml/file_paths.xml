@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Lokasi screenshot lama (Android 7-9) untuk FileProvider (ACTION_SEND). -->
+    <external-files-path
+        name="screenshots"
+        path="screenshots/" />
+
+    <!-- Folder yang di-redirect jadi drive 'KzDesk' di PC. File yang diterima
+         dari PC perlu URI content:// sebelum bisa dibuka/dibagikan aplikasi
+         lain; FileProvider hanya mau melayani path yang dideklarasikan di sini. -->
+    <external-files-path
+        name="share"
+        path="Share/" />
+</paths>

@@ -1,0 +1,814 @@
+// KzDesk Remote (KazamaDev, 2026): berkas ini dimodifikasi dari FreeRDP; lihat NOTICE.md untuk daftar perubahan.
+/*
+   Android Session view
+
+   Copyright 2013 Thincast Technologies GmbH, Author: Martin Fleisz
+
+   This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+   If a copy of the MPL was not distributed with this file, You can obtain one at
+   http://mozilla.org/MPL/2.0/.
+*/
+
+package com.freerdp.freerdpcore.presentation;
+
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.drawable.BitmapDrawable;
+import android.text.InputType;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.PointerIcon;
+import android.view.ScaleGestureDetector;
+import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.KeyEvent;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+
+import androidx.annotation.NonNull;
+
+import com.freerdp.freerdpcore.application.SessionState;
+import com.freerdp.freerdpcore.utils.DoubleGestureDetector;
+import com.freerdp.freerdpcore.utils.GestureDetector;
+
+import java.util.Stack;
+
+public class SessionView extends View
+{
+	public static final float MAX_SCALE_FACTOR = 3.0f;
+	public static final float MIN_SCALE_FACTOR = 0.10f;
+	private static final String TAG = "SessionView";
+	private static final float SCALE_FACTOR_DELTA = 0.0001f;
+	private static final float TOUCH_SCROLL_DELTA = 10.0f;
+	private int width;
+	private int height;
+	private BitmapDrawable surface;
+	private Stack<Rect> invalidRegions;
+	private int touchPointerPaddingWidth = 0;
+	private int touchPointerPaddingHeight = 0;
+	private SessionViewListener sessionViewListener = null;
+	private OnZoomChangedListener zoomChangedListener = null;
+	private boolean railMode = false;
+	// helpers for scaling gesture handling
+	private float scaleFactor = 1.0f;
+	private Matrix scaleMatrix;
+	private Matrix invScaleMatrix;
+	private RectF invalidRegionF;
+	private GestureDetector gestureDetector;
+	private SessionState currentSession;
+
+	// Pixels of touchpad travel per wheel notch, and leftover between events.
+	private float notchPxX = 1.0f;
+	private float notchPxY = 1.0f;
+	private float touchpadScrollX = 0;
+	private float touchpadScrollY = 0;
+
+	private int[] cursorPixels = null;
+	private int cursorWidth = 0;
+	private int cursorHeight = 0;
+	private int cursorHotX = 0;
+	private int cursorHotY = 0;
+
+	// private static final String TAG = "FreeRDP.SessionView";
+	private DoubleGestureDetector doubleGestureDetector;
+	public SessionView(Context context)
+	{
+		super(context);
+		initSessionView(context);
+	}
+
+	public SessionView(Context context, AttributeSet attrs)
+	{
+		super(context, attrs);
+		initSessionView(context);
+	}
+
+	public SessionView(Context context, AttributeSet attrs, int defStyle)
+	{
+		super(context, attrs, defStyle);
+		initSessionView(context);
+	}
+
+	private void initSessionView(Context context)
+	{
+		// Ensure the view is focusable so the soft keyboard can attach to it (required for API 30+)
+		setFocusable(true);
+		setFocusableInTouchMode(true);
+
+		invalidRegions = new Stack<>();
+		gestureDetector = new GestureDetector(context, new SessionGestureListener(), null, true);
+		ViewConfiguration vc = ViewConfiguration.get(context);
+		notchPxX = Math.max(1.0f, vc.getScaledHorizontalScrollFactor());
+		notchPxY = Math.max(1.0f, vc.getScaledVerticalScrollFactor());
+		doubleGestureDetector =
+		    new DoubleGestureDetector(context, null, new SessionDoubleGestureListener());
+
+		scaleFactor = 1.0f;
+		scaleMatrix = new Matrix();
+		invScaleMatrix = new Matrix();
+		invalidRegionF = new RectF();
+	}
+
+	/* External Mouse Hover */
+	@Override public boolean onHoverEvent(MotionEvent event)
+	{
+		if (event.getAction() == MotionEvent.ACTION_HOVER_MOVE)
+		{
+			// Handle hover move event
+			float x = event.getX();
+			float y = event.getY();
+			// Perform actions based on the hover position (x, y)
+			MotionEvent mappedEvent = mapTouchEvent(event);
+			sessionViewListener.onSessionViewMouseMove((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY());
+			mappedEvent.recycle();
+		}
+		// Return true to indicate that you've handled the event
+		return true;
+	}
+
+	public void setScaleGestureDetector(ScaleGestureDetector scaleGestureDetector)
+	{
+		doubleGestureDetector.setScaleGestureDetector(scaleGestureDetector);
+	}
+
+	public void setSessionViewListener(SessionViewListener sessionViewListener)
+	{
+		this.sessionViewListener = sessionViewListener;
+	}
+
+	public void addInvalidRegion(Rect invalidRegion)
+	{
+		// correctly transform invalid region depending on current scaling
+		invalidRegionF.set(invalidRegion);
+		scaleMatrix.mapRect(invalidRegionF);
+		invalidRegionF.roundOut(invalidRegion);
+
+		invalidRegions.add(invalidRegion);
+	}
+
+	public void invalidateRegion()
+	{
+		invalidate(invalidRegions.pop());
+	}
+
+	public void onSurfaceChange(SessionState session)
+	{
+		surface = session.getSurface();
+		surface.setFilterBitmap(true);
+		surface.setDither(true);
+		if (surface.getPaint() != null)
+		{
+			surface.getPaint().setFilterBitmap(true);
+			surface.getPaint().setAntiAlias(true);
+			surface.getPaint().setDither(true);
+		}
+		Bitmap bitmap = surface.getBitmap();
+		width = bitmap.getWidth();
+		height = bitmap.getHeight();
+		surface.setBounds(0, 0, width, height);
+
+		setMinimumWidth(width);
+		setMinimumHeight(height);
+
+		requestLayout();
+		currentSession = session;
+	}
+
+	public float getZoom()
+	{
+		return scaleFactor;
+	}
+
+	public void setRailMode(boolean rail)
+	{
+		if (railMode == rail)
+			return;
+		railMode = rail;
+		invalidate();
+	}
+
+	public interface OnZoomChangedListener
+	{
+		void onZoomChanged(float zoom);
+	}
+
+	public void setOnZoomChangedListener(OnZoomChangedListener l)
+	{
+		zoomChangedListener = l;
+	}
+
+	public void setZoom(float factor)
+	{
+		scaleFactor = factor;
+		scaleMatrix.setScale(scaleFactor, scaleFactor);
+		invScaleMatrix.setScale(1.0f / scaleFactor, 1.0f / scaleFactor);
+
+		if (cursorPixels != null)
+			applyScaledCursor();
+
+		if (zoomChangedListener != null)
+			zoomChangedListener.onZoomChanged(scaleFactor);
+
+		requestLayout();
+	}
+
+	public boolean isAtMaxZoom()
+	{
+		return (scaleFactor > (MAX_SCALE_FACTOR - SCALE_FACTOR_DELTA));
+	}
+
+	public boolean isAtMinZoom()
+	{
+		return (scaleFactor < (MIN_SCALE_FACTOR + SCALE_FACTOR_DELTA));
+	}
+
+	public boolean zoomIn(float factor)
+	{
+		boolean res = true;
+		scaleFactor += factor;
+		if (scaleFactor > (MAX_SCALE_FACTOR - SCALE_FACTOR_DELTA))
+		{
+			scaleFactor = MAX_SCALE_FACTOR;
+			res = false;
+		}
+		setZoom(scaleFactor);
+		return res;
+	}
+
+	public boolean zoomOut(float factor)
+	{
+		boolean res = true;
+		scaleFactor -= factor;
+		if (scaleFactor < (MIN_SCALE_FACTOR + SCALE_FACTOR_DELTA))
+		{
+			scaleFactor = MIN_SCALE_FACTOR;
+			res = false;
+		}
+		setZoom(scaleFactor);
+		return res;
+	}
+
+	public void setTouchPointerPadding(int width, int height)
+	{
+		touchPointerPaddingWidth = width;
+		touchPointerPaddingHeight = height;
+		requestLayout();
+	}
+
+	public int getTouchPointerPaddingWidth()
+	{
+		return touchPointerPaddingWidth;
+	}
+
+	public int getTouchPointerPaddingHeight()
+	{
+		return touchPointerPaddingHeight;
+	}
+
+	@Override public void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
+	{
+		Log.v(TAG, width + "x" + height);
+		this.setMeasuredDimension((int)(width * scaleFactor) + touchPointerPaddingWidth,
+		                          (int)(height * scaleFactor) + touchPointerPaddingHeight);
+	}
+
+	@Override public void onDraw(@NonNull Canvas canvas)
+	{
+		super.onDraw(canvas);
+
+		canvas.save();
+		canvas.concat(scaleMatrix);
+		canvas.drawColor(Color.BLACK);
+		if (!railMode && surface != null)
+		{
+			surface.draw(canvas);
+		}
+		canvas.restore();
+	}
+
+	// perform mapping on the touch event's coordinates according to the current scaling
+	private MotionEvent mapTouchEvent(MotionEvent event)
+	{
+		MotionEvent mappedEvent = MotionEvent.obtain(event);
+		float[] coordinates = { mappedEvent.getX(), mappedEvent.getY() };
+		invScaleMatrix.mapPoints(coordinates);
+		mappedEvent.setLocation(coordinates[0], coordinates[1]);
+		return mappedEvent;
+	}
+
+	// perform mapping on the double touch event's coordinates according to the current scaling
+	private MotionEvent mapDoubleTouchEvent(MotionEvent event)
+	{
+		MotionEvent mappedEvent = MotionEvent.obtain(event);
+		float[] coordinates = { (mappedEvent.getX(0) + mappedEvent.getX(1)) / 2,
+			                    (mappedEvent.getY(0) + mappedEvent.getY(1)) / 2 };
+		invScaleMatrix.mapPoints(coordinates);
+		mappedEvent.setLocation(coordinates[0], coordinates[1]);
+		return mappedEvent;
+	}
+
+	// S-Pen / stylus: tombol barrel pada pena = klik kanan selama pena menyentuh layar.
+	private boolean stylusRightHeld = false;
+
+	@Override public boolean onTouchEvent(MotionEvent event)
+	{
+		if (event.getPointerCount() == 1 && event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS)
+		{
+			final int a = event.getActionMasked();
+			final boolean barrel = (event.getButtonState() & MotionEvent.BUTTON_STYLUS_PRIMARY) != 0;
+			if ((a == MotionEvent.ACTION_DOWN && barrel) || stylusRightHeld)
+			{
+				MotionEvent mapped = mapTouchEvent(event);
+				final int sx = (int)mapped.getX();
+				final int sy = (int)mapped.getY();
+				mapped.recycle();
+				if (a == MotionEvent.ACTION_DOWN)
+				{
+					stylusRightHeld = true;
+					sessionViewListener.onSessionViewBeginTouch();
+					sessionViewListener.onSessionViewRightTouch(sx, sy, true);
+					return true;
+				}
+				if (a == MotionEvent.ACTION_MOVE)
+				{
+					sessionViewListener.onSessionViewMouseMove(sx, sy);
+					return true;
+				}
+				if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL)
+				{
+					stylusRightHeld = false;
+					sessionViewListener.onSessionViewRightTouch(sx, sy, false);
+					sessionViewListener.onSessionViewEndTouch();
+					return true;
+				}
+			}
+		}
+
+		// Physical mouse events: bypass gesture detector entirely.
+		// Buttons are handled in onGenericMotionEvent; hover moves in onHoverEvent.
+		// Only ACTION_MOVE with a button held (drag) needs handling here.
+		if (event.isFromSource(InputDevice.SOURCE_MOUSE))
+		{
+			int action = event.getActionMasked();
+			if (TouchEventCompat.isTwoFingerSwipe(event))
+			{
+				handleTouchpadScroll(event);
+				return true;
+			}
+			if (action == MotionEvent.ACTION_MOVE && event.getButtonState() != 0)
+			{
+				MotionEvent mapped = mapTouchEvent(event);
+				sessionViewListener.onSessionViewMouseMove((int)mapped.getX(), (int)mapped.getY());
+				mapped.recycle();
+				return true;
+			}
+			return true;
+		}
+
+		boolean res = gestureDetector.onTouchEvent(event);
+		res |= doubleGestureDetector.onTouchEvent(event);
+		return res;
+	}
+
+	// Handle physical touchpad two-finger scroll gesture.
+	private void handleTouchpadScroll(MotionEvent event)
+	{
+		if (event.getActionMasked() != MotionEvent.ACTION_MOVE)
+		{
+			touchpadScrollX = 0;
+			touchpadScrollY = 0;
+			return;
+		}
+
+		touchpadScrollY += gestureDistance(event, MotionEvent.AXIS_GESTURE_SCROLL_Y_DISTANCE);
+		while (Math.abs(touchpadScrollY) >= notchPxY)
+		{
+			final boolean down = touchpadScrollY > 0;
+			touchpadScrollY += down ? -notchPxY : notchPxY;
+			sessionViewListener.onSessionViewScroll(down);
+		}
+
+		touchpadScrollX += gestureDistance(event, MotionEvent.AXIS_GESTURE_SCROLL_X_DISTANCE);
+		while (Math.abs(touchpadScrollX) >= notchPxX)
+		{
+			final boolean right = touchpadScrollX > 0;
+			touchpadScrollX += right ? -notchPxX : notchPxX;
+			sessionViewListener.onSessionViewHScroll(right);
+		}
+	}
+
+	// Sum batched historical and current sample deltas for a gesture axis.
+	private static float gestureDistance(MotionEvent event, int axis)
+	{
+		float distance = 0;
+		for (int i = 0; i < event.getHistorySize(); i++)
+			distance += event.getHistoricalAxisValue(axis, 0, i);
+		return distance + event.getAxisValue(axis);
+	}
+
+	// Handle all physical mouse buttons here; finger taps come via onSingleTapUp.
+	@Override public boolean onGenericMotionEvent(MotionEvent event)
+	{
+		final boolean isPointer = event.isFromSource(InputDevice.SOURCE_CLASS_POINTER);
+		if (!isPointer)
+			return false;
+
+		// Pena (hover) diperlakukan seperti mouse: kursor PC mengikuti ujung pena dengan presisi.
+		final boolean isMouse = event.isFromSource(InputDevice.SOURCE_MOUSE) ||
+		                        event.isFromSource(InputDevice.SOURCE_STYLUS);
+		int action = event.getActionMasked();
+
+		if (isMouse && action == MotionEvent.ACTION_HOVER_MOVE)
+		{
+			MotionEvent mapped = mapTouchEvent(event);
+			if (sessionViewListener != null)
+			{
+				sessionViewListener.onSessionViewMouseMove((int)mapped.getX(), (int)mapped.getY());
+			}
+			mapped.recycle();
+			return true;
+		}
+
+		if (isMouse && (action == MotionEvent.ACTION_BUTTON_PRESS ||
+		                action == MotionEvent.ACTION_BUTTON_RELEASE))
+		{
+			boolean down = action == MotionEvent.ACTION_BUTTON_PRESS;
+			MotionEvent mapped = mapTouchEvent(event);
+			int x = (int)mapped.getX();
+			int y = (int)mapped.getY();
+			mapped.recycle();
+
+			switch (event.getActionButton())
+			{
+				case MotionEvent.BUTTON_PRIMARY:
+					if (down)
+						sessionViewListener.onSessionViewBeginTouch();
+					sessionViewListener.onSessionViewLeftTouch(x, y, down);
+					if (!down)
+						sessionViewListener.onSessionViewEndTouch();
+					return true;
+				case MotionEvent.BUTTON_SECONDARY:
+					if (down)
+						sessionViewListener.onSessionViewBeginTouch();
+					sessionViewListener.onSessionViewRightTouch(x, y, down);
+					return true;
+				case MotionEvent.BUTTON_STYLUS_PRIMARY: // tombol pena = klik kanan
+					if (down)
+						sessionViewListener.onSessionViewBeginTouch();
+					sessionViewListener.onSessionViewRightTouch(x, y, down);
+					return true;
+				case MotionEvent.BUTTON_TERTIARY:
+				case MotionEvent.BUTTON_STYLUS_SECONDARY: // tombol pena kedua = klik tengah
+					sessionViewListener.onSessionViewMiddleTouch(x, y, down);
+					return true;
+				default:
+					return true; // consume unknown buttons silently
+			}
+		}
+
+		if (action == MotionEvent.ACTION_SCROLL)
+		{
+			float vScroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
+			float hScroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
+			if (vScroll != 0)
+				sessionViewListener.onSessionViewScroll(vScroll > 0);
+			if (hScroll != 0)
+				sessionViewListener.onSessionViewHScroll(hScroll > 0);
+			return true;
+		}
+
+		return false;
+	}
+
+	public interface SessionViewListener
+	{
+		void onSessionViewBeginTouch();
+
+		void onSessionViewEndTouch();
+
+		void onSessionViewLeftTouch(int x, int y, boolean down);
+
+		void onSessionViewMiddleTouch(int x, int y, boolean down);
+
+		void onSessionViewRightTouch(int x, int y, boolean down);
+
+		void onSessionViewMove(int x, int y);
+
+		void onSessionViewMouseMove(int x, int y);
+
+		void onSessionViewScroll(boolean down);
+
+		void onSessionViewHScroll(boolean right);
+	}
+
+	public void setRemoteCursor(int[] pixels, int width, int height, int hotX, int hotY)
+	{
+		if (pixels == null || width == 0 || height == 0)
+		{
+			cursorPixels = null;
+			setPointerIcon(PointerIcon.getSystemIcon(getContext(), PointerIcon.TYPE_NULL));
+			return;
+		}
+		cursorPixels = pixels;
+		cursorWidth = width;
+		cursorHeight = height;
+		cursorHotX = hotX;
+		cursorHotY = hotY;
+		applyScaledCursor();
+	}
+
+	private void applyScaledCursor()
+	{
+		int scaledWidth = Math.max(1, (int)(cursorWidth * scaleFactor));
+		int scaledHeight = Math.max(1, (int)(cursorHeight * scaleFactor));
+		Bitmap bm =
+		    Bitmap.createBitmap(cursorPixels, cursorWidth, cursorHeight, Bitmap.Config.ARGB_8888);
+		Bitmap scaled = Bitmap.createScaledBitmap(bm, scaledWidth, scaledHeight, true);
+		PointerIcon icon =
+		    PointerIcon.create(scaled, cursorHotX * scaleFactor, cursorHotY * scaleFactor);
+		setPointerIcon(icon);
+	}
+
+	public void setDefaultCursor()
+	{
+		setPointerIcon(PointerIcon.getSystemIcon(getContext(), PointerIcon.TYPE_ARROW));
+	}
+
+	private class SessionGestureListener extends GestureDetector.SimpleOnGestureListener
+	{
+		boolean longPressInProgress = false;
+
+		public boolean onDown(MotionEvent e)
+		{
+			return true;
+		}
+
+		public boolean onUp(MotionEvent e)
+		{
+			sessionViewListener.onSessionViewEndTouch();
+			return true;
+		}
+
+		public void onLongPress(MotionEvent e)
+		{
+			MotionEvent mappedEvent = mapTouchEvent(e);
+			sessionViewListener.onSessionViewBeginTouch();
+			sessionViewListener.onSessionViewLeftTouch((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY(), true);
+			longPressInProgress = true;
+		}
+
+		public void onLongPressUp(MotionEvent e)
+		{
+			MotionEvent mappedEvent = mapTouchEvent(e);
+			sessionViewListener.onSessionViewLeftTouch((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY(), false);
+			longPressInProgress = false;
+			sessionViewListener.onSessionViewEndTouch();
+		}
+
+		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY)
+		{
+			if (longPressInProgress)
+			{
+				MotionEvent mappedEvent = mapTouchEvent(e2);
+				sessionViewListener.onSessionViewMove((int)mappedEvent.getX(),
+				                                      (int)mappedEvent.getY());
+				return true;
+			}
+
+			return false;
+		}
+
+		public boolean onDoubleTap(MotionEvent e)
+		{
+			// send 2nd click for double click
+			MotionEvent mappedEvent = mapTouchEvent(e);
+			sessionViewListener.onSessionViewLeftTouch((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY(), true);
+			sessionViewListener.onSessionViewLeftTouch((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY(), false);
+			return true;
+		}
+
+		public boolean onSingleTapUp(MotionEvent e)
+		{
+			// Physical mouse buttons are handled via ACTION_BUTTON_PRESS in onGenericMotionEvent.
+			// If buttonState is non-zero this event came from a physical mouse button
+			if (e.getButtonState() != 0)
+				return false;
+
+			// Finger touch -> left click
+			MotionEvent mappedEvent = mapTouchEvent(e);
+			sessionViewListener.onSessionViewBeginTouch();
+			sessionViewListener.onSessionViewLeftTouch((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY(), true);
+			sessionViewListener.onSessionViewLeftTouch((int)mappedEvent.getX(),
+			                                           (int)mappedEvent.getY(), false);
+			sessionViewListener.onSessionViewEndTouch();
+			return true;
+		}
+	}
+
+	private class SessionDoubleGestureListener
+	    implements DoubleGestureDetector.OnDoubleGestureListener
+	{
+		private MotionEvent prevEvent = null;
+
+		public boolean onDoubleTouchDown(MotionEvent e)
+		{
+			sessionViewListener.onSessionViewBeginTouch();
+			prevEvent = MotionEvent.obtain(e);
+			return true;
+		}
+
+		public boolean onDoubleTouchUp(MotionEvent e)
+		{
+			if (prevEvent != null)
+			{
+				prevEvent.recycle();
+				prevEvent = null;
+			}
+			sessionViewListener.onSessionViewEndTouch();
+			return true;
+		}
+
+		public boolean onDoubleTouchScroll(MotionEvent e1, MotionEvent e2)
+		{
+			// calc if user scrolled up or down (or if any scrolling happened at all)
+			float deltaY = e2.getY() - prevEvent.getY();
+			if (deltaY > TOUCH_SCROLL_DELTA)
+			{
+				sessionViewListener.onSessionViewScroll(true);
+				prevEvent.recycle();
+				prevEvent = MotionEvent.obtain(e2);
+			}
+			else if (deltaY < -TOUCH_SCROLL_DELTA)
+			{
+				sessionViewListener.onSessionViewScroll(false);
+				prevEvent.recycle();
+				prevEvent = MotionEvent.obtain(e2);
+			}
+			return true;
+		}
+
+		public boolean onDoubleTouchSingleTap(MotionEvent e)
+		{
+			// send single click
+			MotionEvent mappedEvent = mapDoubleTouchEvent(e);
+			sessionViewListener.onSessionViewRightTouch((int)mappedEvent.getX(),
+			                                            (int)mappedEvent.getY(), true);
+			sessionViewListener.onSessionViewRightTouch((int)mappedEvent.getX(),
+			                                            (int)mappedEvent.getY(), false);
+			return true;
+		}
+	}
+
+	/**
+	 * Penerima ketikan dari keyboard HP.
+	 *
+	 * KzDesk tidak memakai keyboard virtual, jadi semua karakter dari IME harus
+	 * masuk ke mapper tombol inti. Pemilik sesi memasang sink ini lewat
+	 * setInputSink(); kalau tidak dipasang, perilaku lama dipakai apa adanya.
+	 */
+	public interface InputSink
+	{
+		/** Teks IME, termasuk update komposisi yang belum di-commit oleh keyboard. */
+		void onText(String text);
+
+		/** Tombol apa adanya dari IME (backspace, enter, ...). */
+		boolean onKeyEvent(KeyEvent event);
+	}
+
+	private InputSink inputSink;
+
+	public void setInputSink(InputSink sink)
+	{
+		this.inputSink = sink;
+	}
+
+	@Override public boolean onCheckIsTextEditor()
+	{
+		return inputSink != null;
+	}
+
+	@Override public InputConnection onCreateInputConnection(EditorInfo outAttrs)
+	{
+		outAttrs.actionLabel = null;
+		// Standard multi-line text input so Gboard/Samsung Keyboard keep their
+		// clipboard toolbar, paste chips, and full keyboard features enabled.
+		outAttrs.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+		outAttrs.imeOptions = EditorInfo.IME_ACTION_NONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI |
+		                      EditorInfo.IME_FLAG_NO_FULLSCREEN;
+		final InputSink sink = inputSink;
+		if (sink == null)
+			return new BaseInputConnection(this, false);
+
+		return new BaseInputConnection(this, true) {
+			private final ImeCompositionBuffer composition = new ImeCompositionBuffer();
+
+			private void sendBackspaces(int count)
+			{
+				for (int i = 0; i < count; i++)
+				{
+					sink.onKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL));
+					sink.onKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL));
+				}
+			}
+
+			private void sendForwardDeletes(int count)
+			{
+				for (int i = 0; i < count; i++)
+				{
+					sink.onKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_FORWARD_DEL));
+					sink.onKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_FORWARD_DEL));
+				}
+			}
+
+			private void applyCompositionEdit(ImeCompositionBuffer.Edit edit)
+			{
+				sendBackspaces(edit.backspaces);
+				if (!edit.text.isEmpty())
+					sink.onText(edit.text);
+			}
+
+			@Override public CharSequence getTextBeforeCursor(int length, int flags)
+			{
+				if (length <= 0)
+					return "";
+				String current = " " + composition.getComposingText();
+				if (current.length() <= length)
+					return current;
+				return current.substring(current.length() - length);
+			}
+
+			@Override public CharSequence getTextAfterCursor(int length, int flags)
+			{
+				return "";
+			}
+
+			@Override public boolean setComposingText(CharSequence text, int newCursorPosition)
+			{
+				// Stream only the changed suffix: live IME text appears immediately,
+				// while autocorrect replaces it without re-sending the common prefix.
+				applyCompositionEdit(composition.setComposingText(text));
+				return true;
+			}
+
+			@Override public boolean commitText(CharSequence text, int newCursorPosition)
+			{
+				applyCompositionEdit(composition.commitText(text));
+				return true;
+			}
+
+			@Override public boolean finishComposingText()
+			{
+				// All provisional content has already been sent by setComposingText.
+				composition.finishComposingText();
+				return true;
+			}
+
+			@Override public boolean sendKeyEvent(KeyEvent event)
+			{
+				if (event == null)
+					return false;
+				if (event.getKeyCode() == KeyEvent.KEYCODE_DEL &&
+				    event.getAction() == KeyEvent.ACTION_DOWN && composition.hasComposingText())
+				{
+					sendBackspaces(composition.deleteBeforeCursor(1));
+					return true;
+				}
+				if (ImeCompositionBuffer.isPrintableImeTextEvent(
+				        event.getFlags(), event.getAction(), event.getUnicodeChar(),
+				        composition.hasComposingText()))
+					return true;
+				if (ImeCompositionBuffer.isImeMultipleTextEvent(
+				        event.getFlags(), event.getAction(), event.getCharacters(),
+				        composition.hasComposingText()))
+					return true;
+				if (event.getAction() == KeyEvent.ACTION_DOWN &&
+				    !KeyEvent.isModifierKey(event.getKeyCode()))
+				{
+					composition.onKeyEventDispatched();
+				}
+				return sink.onKeyEvent(event);
+			}
+
+			@Override public boolean deleteSurroundingText(int beforeLength, int afterLength)
+			{
+				sendBackspaces(composition.deleteBeforeCursor(beforeLength));
+				sendForwardDeletes(composition.deleteAfterCursor(afterLength));
+				return true;
+			}
+		};
+	}
+}

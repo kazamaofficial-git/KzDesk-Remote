@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KzDesk Remote</string>
+    <string name="spotify_media_listener_label">Spotify media controls for KzDesk</string>
+    <string name="kz_widget_description">Sambung ke PC favorit dengan satu ketukan.</string>
+</resources>

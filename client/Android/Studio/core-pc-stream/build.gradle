@@ -1,0 +1,32 @@
+// Standalone PC/Game Stream primitives. Kept separate from :core-rdp so this
+// module can never accidentally create a FreeRDP session.
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.kazamatech.kzdesk.pcstream'
+    compileSdkVersion rootProject.ext.compileApi
+    buildToolsVersion rootProject.ext.toolsVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minApi
+        targetSdkVersion rootProject.ext.targetApi
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+}
+
+dependencies {
+    // Pinned Android WebRTC SDK; standard codecs remain available for codec fallback.
+    implementation 'io.github.webrtc-sdk:android:150.7871.01'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20250517'
+}
